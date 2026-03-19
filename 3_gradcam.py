@@ -1,9 +1,3 @@
-"""
-3_gradcam.py
-Intel Image Classification — Grad-CAM Görselleştirme
-Her sınıftan 1 örnek görüntü için ısı haritası üretir.
-"""
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -14,7 +8,6 @@ from torchvision import models, transforms, datasets
 from pathlib import Path
 from PIL import Image
 
-# ─── Cihaz ──────────────────────────────────────────────────────────────────
 DEVICE    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 IMG_SIZE  = 224
 NUM_CLASSES = 6
@@ -25,7 +18,6 @@ DATA_DIR  = Path("data") / "seg_test" / "seg_test"
 MODEL_DIR = Path("models") / "best_model.pth"
 OUT_DIR   = Path("outputs/gradcam"); OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ─── Model ──────────────────────────────────────────────────────────────────
 def load_model():
     model = models.resnet50(weights=None)
     in_features = model.fc.in_features
@@ -40,7 +32,6 @@ def load_model():
     model.eval()
     return model.to(DEVICE)
 
-# ─── Grad-CAM ───────────────────────────────────────────────────────────────
 class GradCAM:
     def __init__(self, model, target_layer):
         self.model       = model
@@ -71,7 +62,6 @@ class GradCAM:
         cam    = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
         return cam, class_idx
 
-# ─── Dönüşüm ────────────────────────────────────────────────────────────────
 normalize = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.ToTensor(),
@@ -85,14 +75,12 @@ def denormalize(tensor):
     img  = img * std + mean
     return np.clip(img, 0, 1)
 
-# ─── Overlay Fonksiyonu ──────────────────────────────────────────────────────
 def overlay_cam(img_np, cam, alpha=0.45):
     heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
     heatmap  = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB) / 255.0
     overlay  = alpha * heatmap + (1 - alpha) * img_np
     return np.clip(overlay, 0, 1)
 
-# ─── Ana Akış ────────────────────────────────────────────────────────────────
 model  = load_model()
 gradcam = GradCAM(model, model.layer4[-1])
 
@@ -113,13 +101,11 @@ for col, cls in enumerate(CLASSES):
     img_np  = denormalize(tensor)
     overlay = overlay_cam(img_np, cam)
 
-    # Orijinal
     axes[0, col].imshow(img_np)
     axes[0, col].set_title(f"{cls}\n(Gerçek)", color=COLORS[col],
                            fontsize=10, fontweight="bold")
     axes[0, col].axis("off")
 
-    # Grad-CAM
     axes[1, col].imshow(overlay)
     pred_label = CLASSES[pred_idx]
     match_color = "#59A14F" if pred_idx == col else "#E15759"
@@ -127,7 +113,6 @@ for col, cls in enumerate(CLASSES):
                            color=match_color, fontsize=10, fontweight="bold")
     axes[1, col].axis("off")
 
-    # Her görsel için ayrı dosya kaydet
     fig_single, ax_single = plt.subplots(1, 2, figsize=(8, 4))
     fig_single.patch.set_facecolor("#1a1a2e")
     ax_single[0].imshow(img_np); ax_single[0].set_title("Orijinal", color="white"); ax_single[0].axis("off")
