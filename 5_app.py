@@ -1,9 +1,3 @@
-"""
-5_app.py
-Intel Image Classification — Gradio Demo Uygulaması
-Kullanıcı görüntü yükler → Sınıf tahmini + confidence + Grad-CAM heatmap
-"""
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -17,7 +11,6 @@ from pathlib import Path
 from PIL import Image
 import io
 
-# ─── Ayarlar ────────────────────────────────────────────────────────────────
 DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 NUM_CLASSES = 6
 IMG_SIZE    = 224
@@ -36,7 +29,6 @@ CLASS_DESCS = {
     "street":    "Sokaklar ve kent yolları",
 }
 
-# ─── Model ──────────────────────────────────────────────────────────────────
 def load_model():
     model = models.resnet50(weights=None)
     in_feat = model.fc.in_features
@@ -51,7 +43,6 @@ def load_model():
 model = load_model()
 print(f"✅  Model yüklendi | Cihaz: {DEVICE}")
 
-# ─── Dönüşümler ─────────────────────────────────────────────────────────────
 preprocess = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.ToTensor(),
@@ -64,7 +55,6 @@ def denormalize(tensor):
     img  = tensor.cpu().numpy().transpose(1, 2, 0)
     return np.clip(img * std + mean, 0, 1)
 
-# ─── Grad-CAM ───────────────────────────────────────────────────────────────
 class GradCAM:
     def __init__(self, model, target_layer):
         self.model = model; self.grads = None; self.acts = None
@@ -85,7 +75,6 @@ class GradCAM:
 
 gradcam = GradCAM(model, model.layer4[-1])
 
-# ─── Tahmin + Grad-CAM Fonksiyonu ────────────────────────────────────────────
 def predict_and_explain(pil_img):
     if pil_img is None:
         return "Lütfen bir görüntü yükleyin.", None
@@ -93,7 +82,6 @@ def predict_and_explain(pil_img):
     pil_img = pil_img.convert("RGB")
     tensor  = preprocess(pil_img)
 
-    # Tahmin
     with torch.no_grad():
         logits = model(tensor.unsqueeze(0).to(DEVICE))
         probs  = torch.softmax(logits, dim=1)[0].cpu().numpy()
@@ -102,14 +90,12 @@ def predict_and_explain(pil_img):
     pred_class = CLASSES[pred_idx]
     confidence = probs[pred_idx] * 100
 
-    # Grad-CAM
     cam, _ = gradcam(tensor, class_idx=pred_idx)
     img_np = denormalize(tensor)
     heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
     heatmap  = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB) / 255.0
     overlay  = np.clip(0.45 * heatmap + 0.55 * img_np, 0, 1)
 
-    # Sonuç metni
     result_text = (
         f"**{EMOJIS[pred_idx]}  Tahmin: {pred_class.upper()}**\n\n"
         f"**Güven:** {confidence:.1f}%\n\n"
@@ -122,7 +108,6 @@ def predict_and_explain(pil_img):
         )
     )
 
-    # Görsel oluştur: 1x2 (orijinal | gradcam)
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
     fig.patch.set_facecolor("#1a1a2e")
     for ax in axes: ax.set_facecolor("#16213e")
@@ -149,7 +134,6 @@ def predict_and_explain(pil_img):
 
     return result_text, result_img
 
-# ─── Örnek Görseller ────────────────────────────────────────────────────────
 EXAMPLE_DIR = Path("data/seg_test/seg_test")
 examples = []
 for cls in CLASSES:
@@ -157,7 +141,6 @@ for cls in CLASSES:
     if imgs:
         examples.append([str(imgs[0])])
 
-# ─── Gradio Arayüzü ─────────────────────────────────────────────────────────
 with gr.Blocks(
     theme=gr.themes.Base(primary_hue="blue", neutral_hue="slate"),
     title="Intel Image Classifier",
