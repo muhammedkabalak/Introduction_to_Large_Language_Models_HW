@@ -1,15 +1,9 @@
-"""
-1_data_exploration.py
-Intel Image Classification — Veri Keşfi (EDA)
-"""
-
 import os
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
 from pathlib import Path
 
-# ─── Ayarlar ───────────────────────────────────────────────────────────────
 DATA_DIR   = Path("data")
 TRAIN_DIR  = DATA_DIR / "seg_train" / "seg_train"
 TEST_DIR   = DATA_DIR / "seg_test"  / "seg_test"
@@ -19,7 +13,6 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 CLASSES = ["buildings", "forest", "glacier", "mountain", "sea", "street"]
 COLORS  = ["#4E79A7", "#59A14F", "#76B7B2", "#9C755F", "#EDC948", "#B07AA1"]
 
-# ─── 1. Sınıf Dağılımı ─────────────────────────────────────────────────────
 def count_images(root: Path):
     counts = {}
     for cls in CLASSES:
@@ -41,7 +34,6 @@ for cls in CLASSES:
 print("-" * 30)
 print(f"{'TOPLAM':<12} {total_train:>8} {total_test:>8}")
 
-# ─── 2. Bar Chart ──────────────────────────────────────────────────────────
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 fig.patch.set_facecolor("#1a1a2e")
 
@@ -66,7 +58,6 @@ plt.savefig(OUT_DIR / "class_distribution.png", dpi=150, bbox_inches="tight",
 print("\n✅  Kaydedildi: outputs/plots/class_distribution.png")
 plt.close()
 
-# ─── 3. Örnek Görüntü Izgara ───────────────────────────────────────────────
 fig, axes = plt.subplots(2, 6, figsize=(18, 7))
 fig.patch.set_facecolor("#1a1a2e")
 fig.suptitle("Her Sınıftan Örnek Görüntüler", color="white", fontsize=16, fontweight="bold")
