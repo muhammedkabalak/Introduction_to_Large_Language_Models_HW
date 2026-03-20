@@ -1,10 +1,3 @@
-"""
-2_train.py
-Intel Image Classification — ResNet50 Transfer Learning (GPU)
-Aşama 1: Feature Extraction (frozen backbone, 5 epoch)
-Aşama 2: Fine-Tuning (layer3 + layer4 açık, 10 epoch)
-"""
-
 import os, time, copy
 import torch
 import torch.nn as nn
@@ -16,13 +9,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-# ─── Cihaz ──────────────────────────────────────────────────────────────────
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"🖥️  Kullanılan cihaz: {DEVICE}")
 if DEVICE.type == "cuda":
     print(f"   GPU: {torch.cuda.get_device_name(0)}")
 
-# ─── Hiperparametreler ───────────────────────────────────────────────────────
 BATCH_SIZE      = 64
 EPOCHS_FROZEN   = 5
 EPOCHS_FINETUNE = 10
@@ -32,14 +23,12 @@ NUM_CLASSES     = 6
 IMG_SIZE        = 224
 NUM_WORKERS     = 4
 
-# ─── Yollar ─────────────────────────────────────────────────────────────────
 DATA_DIR  = Path("data")
 TRAIN_DIR = DATA_DIR / "seg_train" / "seg_train"
 TEST_DIR  = DATA_DIR / "seg_test"  / "seg_test"
 MODEL_DIR = Path("models"); MODEL_DIR.mkdir(exist_ok=True)
 PLOT_DIR  = Path("outputs/plots"); PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ─── Veri Dönüşümleri ───────────────────────────────────────────────────────
 train_transforms = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.RandomHorizontalFlip(),
@@ -58,11 +47,9 @@ test_transforms = transforms.Compose([
                          [0.229, 0.224, 0.225]),
 ])
 
-# ─── Dataset & DataLoader ───────────────────────────────────────────────────
 full_train = datasets.ImageFolder(TRAIN_DIR, transform=train_transforms)
 test_ds    = datasets.ImageFolder(TEST_DIR,  transform=test_transforms)
 
-# %80 train / %20 val bölünmesi
 val_size   = int(0.2 * len(full_train))
 train_size = len(full_train) - val_size
 train_ds, val_ds = torch.utils.data.random_split(
@@ -70,7 +57,6 @@ train_ds, val_ds = torch.utils.data.random_split(
     generator=torch.Generator().manual_seed(42)
 )
 
-# Val set için test dönüşümlerini uygula
 val_ds.dataset = copy.deepcopy(full_train)
 val_ds.dataset.transform = test_transforms
 
@@ -84,13 +70,11 @@ CLASS_NAMES = full_train.classes
 print(f"\n📂  Sınıflar: {CLASS_NAMES}")
 print(f"   Train: {train_size} | Val: {val_size} | Test: {len(test_ds)}")
 
-# ─── Model ──────────────────────────────────────────────────────────────────
 def build_model(freeze_all: bool = True) -> nn.Module:
     model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
     if freeze_all:
         for p in model.parameters():
             p.requires_grad = False
-    # Yeni sınıflandırma katmanı
     in_features = model.fc.in_features
     model.fc = nn.Sequential(
         nn.Dropout(0.4),
@@ -101,7 +85,6 @@ def build_model(freeze_all: bool = True) -> nn.Module:
     )
     return model.to(DEVICE)
 
-# ─── Eğitim Fonksiyonu ──────────────────────────────────────────────────────
 def train_one_epoch(model, loader, criterion, optimizer):
     model.train()
     running_loss = running_correct = 0
@@ -128,7 +111,6 @@ def evaluate(model, loader, criterion):
             running_correct += (outputs.argmax(1) == labels).sum().item()
     return running_loss / len(loader.dataset), running_correct / len(loader.dataset)
 
-# ─── Eğitim Döngüsü ─────────────────────────────────────────────────────────
 history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
 best_val_acc = 0.0
 
@@ -154,7 +136,6 @@ def run_training(model, epochs, lr, phase_name):
         history["train_acc"].append(tr_acc)
         history["val_acc"].append(vl_acc)
 
-        # En iyi modeli kaydet
         if vl_acc > best_val_acc:
             best_val_acc = vl_acc
             torch.save(model.state_dict(), MODEL_DIR / "best_model.pth")
@@ -170,12 +151,10 @@ def run_training(model, epochs, lr, phase_name):
 
 
 def main():
-    # ─── AŞAMA 1: Feature Extraction ─────────────────────────────────────────────
+    
     model = build_model(freeze_all=True)
     run_training(model, EPOCHS_FROZEN, LR_FROZEN, "AŞAMA 1 — Feature Extraction")
 
-    # ─── AŞAMA 2: Fine-Tuning ────────────────────────────────────────────────────
-    # Son iki bloğu aç
     for name, param in model.named_parameters():
         if "layer3" in name or "layer4" in name or "fc" in name:
             param.requires_grad = True
@@ -185,12 +164,10 @@ def main():
     print(f"\n🏆  En iyi Val Accuracy: {best_val_acc*100:.2f}%")
     print(f"   Model kaydedildi: models/best_model.pth")
 
-    # ─── Test Seti Değerlendirmesi ───────────────────────────────────────────────
     model.load_state_dict(torch.load(MODEL_DIR / "best_model.pth", map_location=DEVICE))
     test_loss, test_acc = evaluate(model, loaders["test"], nn.CrossEntropyLoss())
     print(f"\n📊  Test Accuracy: {test_acc*100:.2f}%  |  Test Loss: {test_loss:.4f}")
 
-    # ─── Eğitim Eğrileri Grafiği ─────────────────────────────────────────────────
     total_epochs = EPOCHS_FROZEN + EPOCHS_FINETUNE
     ep = range(1, total_epochs + 1)
 
@@ -202,7 +179,6 @@ def main():
         for spine in ax.spines.values(): spine.set_edgecolor("#444")
         ax.tick_params(colors="white")
 
-    # Loss
     axes[0].plot(ep, history["train_loss"], color="#4E79A7", lw=2, label="Train Loss")
     axes[0].plot(ep, history["val_loss"],   color="#F28E2B", lw=2, label="Val Loss", linestyle="--")
     axes[0].axvline(x=EPOCHS_FROZEN + 0.5, color="gray", linestyle=":", alpha=0.7, label="Fine-Tune Başlangıcı")
@@ -210,7 +186,6 @@ def main():
     axes[0].set_xlabel("Epoch", color="white"); axes[0].set_ylabel("Loss", color="white")
     axes[0].legend(facecolor="#222", labelcolor="white")
 
-    # Accuracy
     axes[1].plot(ep, [a*100 for a in history["train_acc"]], color="#59A14F", lw=2, label="Train Accuracy")
     axes[1].plot(ep, [a*100 for a in history["val_acc"]],   color="#E15759", lw=2, label="Val Accuracy", linestyle="--")
     axes[1].axvline(x=EPOCHS_FROZEN + 0.5, color="gray", linestyle=":", alpha=0.7, label="Fine-Tune Başlangıcı")
