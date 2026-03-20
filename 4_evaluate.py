@@ -1,9 +1,3 @@
-"""
-4_evaluate.py
-Intel Image Classification — Test Seti Değerlendirme
-Confusion Matrix + Classification Report üretir.
-"""
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -15,7 +9,6 @@ from sklearn.metrics import (classification_report, confusion_matrix,
                               ConfusionMatrixDisplay)
 from pathlib import Path
 
-# ─── Ayarlar ────────────────────────────────────────────────────────────────
 DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 NUM_CLASSES = 6
 IMG_SIZE    = 224
@@ -27,7 +20,6 @@ DATA_DIR  = Path("data") / "seg_test" / "seg_test"
 MODEL_DIR = Path("models") / "best_model.pth"
 PLOT_DIR  = Path("outputs/plots"); PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ─── Veri ───────────────────────────────────────────────────────────────────
 test_transforms = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.ToTensor(),
@@ -39,7 +31,6 @@ test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False,
                          num_workers=NUM_WORKERS, pin_memory=True)
 print(f"📂  Test: {len(test_ds)} görüntü, {len(test_loader)} batch")
 
-# ─── Model ──────────────────────────────────────────────────────────────────
 def load_model():
     model = models.resnet50(weights=None)
     in_features = model.fc.in_features
@@ -57,7 +48,6 @@ def load_model():
 model = load_model()
 print(f"✅  Model yüklendi: {MODEL_DIR}")
 
-# ─── Tahmin ─────────────────────────────────────────────────────────────────
 all_preds, all_labels = [], []
 with torch.no_grad():
     for imgs, labels in test_loader:
@@ -70,14 +60,12 @@ with torch.no_grad():
 all_preds  = np.array(all_preds)
 all_labels = np.array(all_labels)
 
-# ─── Metrikler ──────────────────────────────────────────────────────────────
 acc = (all_preds == all_labels).mean() * 100
 print(f"\n📊  Test Accuracy: {acc:.2f}%")
 
 report = classification_report(all_labels, all_preds, target_names=CLASSES, digits=4)
 print("\n" + report)
 
-# ─── Confusion Matrix (Görsel) ───────────────────────────────────────────────
 cm = confusion_matrix(all_labels, all_preds)
 
 fig, ax = plt.subplots(figsize=(9, 7))
@@ -105,7 +93,6 @@ plt.savefig(PLOT_DIR / "confusion_matrix.png", dpi=150, bbox_inches="tight",
 print("✅  Kaydedildi: outputs/plots/confusion_matrix.png")
 plt.close()
 
-# ─── Per-Class F1 Bar Chart ──────────────────────────────────────────────────
 from sklearn.metrics import f1_score, precision_score, recall_score
 f1s  = f1_score(all_labels, all_preds, average=None)
 prec = precision_score(all_labels, all_preds, average=None)
@@ -127,7 +114,6 @@ ax.set_title("Per-Class Precision / Recall / F1-Score",
 ax.legend(facecolor="#222", labelcolor="white")
 for spine in ax.spines.values(): spine.set_edgecolor("#444")
 
-# Makro ortalamayı yazdır
 macro_f1 = f1_score(all_labels, all_preds, average="macro")
 ax.text(0.98, 0.97, f"Macro F1: {macro_f1:.4f}",
         transform=ax.transAxes, ha="right", va="top",
